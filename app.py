@@ -6,12 +6,13 @@ from marshmallow import ValidationError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import ForeignKey, Table, String, Column, DateTime, func, select
 from typing import List
+from datetime import datetime
 
 # Initialize Flask app
 app = Flask(__name__)
 
 # MySQL DB Connection
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:<PASSWORD>@localhost/ecommerce_flaskapi'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:runnerLubrication94suc33d?@localhost/ecommerce_flaskapi'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Base Model
@@ -75,6 +76,7 @@ class OrderSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Order
         include_fk = True
+        unknown = 'EXCLUDE'  # Ignore unknown fields like product_ids
 
 class ProductSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
@@ -116,7 +118,7 @@ def create_user():
     except ValidationError as err:
         return jsonify(err.messages), 400
 
-    new_user = User(name=user_data['name'], email=user_data['email'])
+    new_user = User(name=user_data['name'], address=user_data['address'], email=user_data['email'])
     db.session.add(new_user)
     db.session.commit()
 
@@ -131,13 +133,16 @@ def update_user(id):
         return jsonify({'message': 'User not found'}), 400
 
     try:
-        user_data = user_schema.load(request.json)
+        user_data = user_schema.load(request.json, partial=True)
     except ValidationError as err:
         return jsonify(err.messages), 400
 
-    user.name = user_data['name']
-    user.address = user_data['address']
-    user.email = user_data['email']
+    if 'name' in user_data:
+        user.name = user_data['name']
+    if 'address' in user_data:
+        user.address = user_data['address']
+    if 'email' in user_data:
+        user.email = user_data['email']
     db.session.commit()
 
     return user_schema.jsonify(user), 200
@@ -196,12 +201,14 @@ def update_product(id):
         return jsonify({'message': 'Product not found'}), 404
 
     try:
-        product_data = product_schema.load(request.json)
+        product_data = product_schema.load(request.json, partial=True)
     except ValidationError as err:
         return jsonify(err.messages), 400
 
-    product.product_name = product_data['product_name']
-    product.price = product_data['price']
+    if 'product_name' in product_data:
+        product.product_name = product_data['product_name']
+    if 'price' in product_data:
+        product.price = product_data['price']
     db.session.commit()
 
     return product_schema.jsonify(product), 200
@@ -218,6 +225,25 @@ def delete_product(id):
     db.session.commit()
 
     return jsonify({'message': 'Product deleted successfully'}), 200
+
+# Delete multiple products by IDs
+@app.route('/products/delete_multiple', methods=['DELETE'])
+def delete_multiple_products():
+    product_ids = request.json.get('product_ids', [])
+    if not product_ids:
+        return jsonify({'message': 'No product IDs provided'}), 400
+
+    query = select(Product).where(Product.id.in_(product_ids))
+    products = db.session.execute(query).scalars().all()
+
+    if not products:
+        return jsonify({'message': 'No valid products found for the provided IDs'}), 404
+
+    for product in products:
+        db.session.delete(product)
+    db.session.commit()
+
+    return jsonify({'message': f'Deleted {len(products)} products successfully'}), 200
 
 
 # ----- Order Endpoints -----
@@ -315,7 +341,158 @@ def get_products_in_order(order_id):
     return products_schema.jsonify(products), 200
 
 
-# Run the Flask app
+# ----- Additional Order Endpoints -----
+
+# Retrieve all orders
+@app.route('/orders', methods=['GET'])
+def get_orders():
+    query = select(Order)
+    orders = db.session.execute(query).scalars().all()
+    return orders_schema.jsonify(orders), 200
+
+# Retrieve an order by ID
+@app.route('/orders/<int:id>', methods=['GET'])
+def get_order(id):
+    order = db.session.get(Order, id)
+    if not order:
+        return jsonify({'message': 'Order not found'}), 404
+    return order_schema.jsonify(order), 200
+
+# Update an order (change user or products)
+@app.route('/orders/<int:id>', methods=['PUT'])
+def update_order(id):
+    order = db.session.get(Order, id)
+    if not order:
+        return jsonify({'message': 'Order not found'}), 404
+
+    try:
+        order_data = order_schema.load(request.json, partial=True)
+    except ValidationError as err:
+        return jsonify(err.messages), 400
+
+    # Update user if provided
+    if 'user_id' in order_data:
+        user = db.session.get(User, order_data['user_id'])
+        if not user:
+            return jsonify({'message': 'User not found'}), 404
+        order.user_id = order_data['user_id']
+
+    # Update products if provided
+    product_ids = request.json.get('product_ids')
+    if product_ids is not None:
+        order.products.clear()
+        for product_id in product_ids:
+            product = db.session.get(Product, product_id)
+            if not product:
+                return jsonify({'message': f'Product with ID {product_id} not found'}), 404
+            order.products.append(product)
+
+    db.session.commit()
+    return order_schema.jsonify(order), 200
+
+# Delete an order by ID
+@app.route('/orders/<int:id>', methods=['DELETE'])
+def delete_order(id):
+    order = db.session.get(Order, id)
+    if not order:
+        return jsonify({'message': 'Order not found'}), 404
+
+    db.session.delete(order)
+    db.session.commit()
+    return jsonify({'message': 'Order deleted successfully'}), 200
+
+# Calculate total price of an order
+@app.route('/orders/<int:order_id>/total', methods=['GET'])
+def calculate_order_total(order_id):
+    order = db.session.get(Order, order_id)
+    if not order:
+        return jsonify({'message': 'Order not found'}), 404
+
+    total = sum(product.price for product in order.products)
+    return jsonify({
+        'order_id': order_id,
+        'total_price': round(total, 2),
+        'product_count': len(order.products)
+    }), 200
+
+# Get order statistics for a user
+@app.route('/users/<int:user_id>/order_stats', methods=['GET'])
+def get_user_order_stats(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    total_orders = len(user.orders)
+    total_spent = sum(
+        sum(product.price for product in order.products)
+        for order in user.orders
+    )
+
+    return jsonify({
+        'user_id': user_id,
+        'total_orders': total_orders,
+        'total_spent': round(total_spent, 2)
+    }), 200
+
+# Get all orders containing a specific product
+@app.route('/products/<int:product_id>/orders', methods=['GET'])
+def get_orders_by_product(product_id):
+    product = db.session.get(Product, product_id)
+    if not product:
+        return jsonify({'message': 'Product not found'}), 404
+
+    if not product.orders:
+        return jsonify({'message': 'No orders found for this product'}), 404
+
+    orders = product.orders
+    return orders_schema.jsonify(orders), 200
+
+# Get all users who ordered a specific product
+@app.route('/products/<int:product_id>/users', methods=['GET'])
+def get_users_by_product(product_id):
+    product = db.session.get(Product, product_id)
+    if not product:
+        return jsonify({'message': 'Product not found'}), 404
+
+    users = {order.user for order in product.orders}
+    if not users:
+        return jsonify({'message': 'No users found for this product'}), 404
+
+    return users_schema.jsonify(list(users)), 200
+
+# Filter orders by date range
+@app.route('/orders/filter', methods=['GET'])
+def filter_orders_by_date():
+
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    if not start_date or not end_date:
+        return jsonify({'message': 'Please provide both start_date and end_date in YYYY-MM-DD format'}), 400
+
+    try:
+        start = datetime.fromisoformat(start_date)
+        end = datetime.fromisoformat(end_date)
+    except ValueError:
+        return jsonify({'message': 'Invalid date format. Use YYYY-MM-DD'}), 400
+
+    query = select(Order).where(Order.order_date.between(start, end))
+    orders = db.session.execute(query).scalars().all()
+
+    if not orders:
+        return jsonify({'message': 'No orders found in the given date range'}), 404
+
+    return orders_schema.jsonify(orders), 200
+
+
+
+
+
+
+
+
+
+# ------------------------- Run Server ---------------------------------
 
 if __name__ == '__main__':
     with app.app_context():
