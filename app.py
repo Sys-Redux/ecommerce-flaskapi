@@ -222,11 +222,100 @@ def delete_product(id):
 
 # ----- Order Endpoints -----
 
+# Create a new order
+@app.route('/orders', methods=['POST'])
+def create_order():
+    try:
+        order_data = order_schema.load(request.json)
+    except ValidationError as err:
+        return jsonify(err.messages), 400
+
+    # Verify user exists
+    user = db.session.get(User, order_data['user_id'])
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    new_order = Order(user_id=order_data['user_id'])
+
+    product_ids = request.json.get('product_ids', [])
+    if not product_ids:
+        return jsonify({'message': 'At least one product ID is required'}), 400
+
+    # Verify and add products to order
+    for product_id in product_ids:
+        product = db.session.get(Product, product_id)
+        if not product:
+            return jsonify({'message': f'Product with ID {product_id} not found'}), 404
+        new_order.products.append(product)
+
+    db.session.add(new_order)
+    db.session.commit()
+
+    return order_schema.jsonify(new_order), 201
+
+# Add a product to an existing order (prevent duplicates)
+@app.route('/orders/<int:order_id>/add_product/<int:product_id>', methods=['PUT'])
+def add_product_to_order(order_id, product_id):
+    order = db.session.get(Order, order_id)
+    if not order:
+        return jsonify({'message': 'Order not found'}), 404
+
+    product = db.session.get(Product, product_id)
+    if not product:
+        return jsonify({'message': 'Product not found'}), 404
+
+    if product in order.products:
+        return jsonify({'message': 'Product already in order'}), 400
+
+    order.products.append(product)
+    db.session.commit()
+
+    return order_schema.jsonify(order), 200
+
+# Remove a product from an existing order
+@app.route('/orders/<int:order_id>/remove_product/<int:product_id>', methods=['DELETE'])
+def remove_product_from_order(order_id, product_id):
+    order = db.session.get(Order, order_id)
+    if not order:
+        return jsonify({'message': 'Order not found'}), 404
+
+    product = db.session.get(Product, product_id)
+    if not product or product not in order.products:
+        return jsonify({'message': 'Product not found in order'}), 404
+
+    order.products.remove(product)
+    db.session.commit()
+
+    return order_schema.jsonify(order), 200
+
+# Retrieve all orders for a specific user
+@app.route('/orders/user/<int:user_id>', methods=['GET'])
+def get_orders_by_user(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    if not user.orders:
+        return jsonify({'message': 'No orders found for this user'}), 404
+
+    orders = user.orders
+    return orders_schema.jsonify(orders), 200
+
+# Get all products in a specific order
+@app.route('/orders/<int:order_id>/products', methods=['GET'])
+def get_products_in_order(order_id):
+    order = db.session.get(Order, order_id)
+    if not order:
+        return jsonify({'message': 'Order not found'}), 404
+
+    if not order.products:
+        return jsonify({'message': 'No products found in this order'}), 404
+
+    products = order.products
+    return products_schema.jsonify(products), 200
 
 
-
-
-
+# Run the Flask app
 
 if __name__ == '__main__':
     with app.app_context():
