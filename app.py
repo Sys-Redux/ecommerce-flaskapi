@@ -3,17 +3,23 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from marshmallow import ValidationError
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import ForeignKey, Table, String, Column, DateTime, func, select
 from typing import List
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Initialize Flask app
 app = Flask(__name__)
 
 # MySQL DB Connection
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:runnerLubrication94suc33d?@localhost/ecommerce_flaskapi'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:<your-password>@localhost/ecommerce_flaskapi'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# JWT Config
+app.config['JWT_SECRET_KEY'] = 'donaldRumpe' # Change this to a random secret key in production
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = False
 
 # Base Model
 class Base(DeclarativeBase):
@@ -23,6 +29,7 @@ class Base(DeclarativeBase):
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 ma = Marshmallow(app)
+jwt = JWTManager(app)
 
 
 # ------------------------- Models ---------------------------------
@@ -166,9 +173,36 @@ def delete_user(id):
 # Retrieve all products
 @app.route('/products', methods=['GET'])
 def get_products():
+    # Get pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    # Validate pagination parameters
+    if page < 1 or per_page < 1:
+        return jsonify({'message': 'Page and per_page must be positive integers'}), 400
+
+    if per_page > 100:
+        return jsonify({'message': 'per_page cannot exceed 100'}), 400
+
+    # Use SQLAlchemy's paginate method
     query = select(Product)
-    products = db.session.execute(query).scalars().all()
-    return products_schema.jsonify(products), 200
+    pagination = db.paginate(query, page=page, per_page=per_page, error_out=False)
+
+    products = pagination.items
+
+    return jsonify({
+        'products': products_schema.dump(products),
+        'pagination': {
+            'page': pagination.page,
+            'per_page': pagination.per_page,
+            'total_pages': pagination.pages,
+            'total_items': pagination.total,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev,
+            'next_page': pagination.next_num if pagination.has_next else None,
+            'prev_page': pagination.prev_num if pagination.has_prev else None
+        }
+    }), 200
 
 # Retrieve a product by ID
 @app.route('/products/<int:id>', methods=['GET'])
