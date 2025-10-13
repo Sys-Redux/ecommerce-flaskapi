@@ -2,7 +2,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
-from marshmallow import ValidationError
+from marshmallow import ValidationError, fields
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import ForeignKey, Table, String, Column, DateTime, func, select
@@ -48,6 +48,7 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     address: Mapped[str] = mapped_column(String(100))
     email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    password: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # One-to-Many relationship with Orders
     orders: Mapped[List['Order']] = relationship('Order', back_populates='user')
@@ -76,6 +77,8 @@ class Product(Base):
 # ------------------------- Schemas ---------------------------------
 # Defining Marshmallow Schemas for serialization/deserialization
 class UserSchema(ma.SQLAlchemyAutoSchema):
+    password = fields.String(load_only=True, required=True)
+
     class Meta:
         model = User
 
@@ -117,27 +120,92 @@ def get_user(id):
         return jsonify({'message': 'User not found'}), 404
     return user_schema.jsonify(user), 200
 
-# Create a new user
-@app.route('/users', methods=['POST'])
-def create_user():
+# Register a new user with hashed password
+@app.route('/register', methods=['POST'])
+def register():
     try:
-        user_data = user_schema.load(request.json)
-    except ValidationError as err:
-        return jsonify(err.messages), 400
+        data = request.json
 
-    new_user = User(name=user_data['name'], address=user_data['address'], email=user_data['email'])
-    db.session.add(new_user)
-    db.session.commit()
+        # Check if user already exists
+        existing_user = db.session.execute(
+            select(User).where(User.email == data.get('email'))
+        ).scalar_one_or_none()
 
-    return user_schema.jsonify(new_user), 201
+        if existing_user:
+            return jsonify({'message': 'User already exists'}), 400
+
+        # Hash the password
+        hashed_password = generate_password_hash(data['password'])
+
+        new_user = User(
+            name=data['name'],
+            address=data.get('address', ''),
+            email=data['email'],
+            password=hashed_password
+        )
+
+        db.session.add(new_user)
+        db.session.commit()
+
+        return jsonify({'message': 'User registered successfully', 'user_id': new_user.id}), 201
+
+    except KeyError as e:
+        return jsonify({'message': f'Missing field: {str(e)}'}), 400
+    except Exception as e:
+        return jsonify({'message': 'An error occurred', 'error': str(e)}), 500
+
+# Login user
+@app.route('/login', methods=['POST'])
+def login():
+    email = request.json.get('email')
+    password = request.json.get('password')
+
+    if not email or not password:
+        return jsonify({'message': 'Email and password are required'}), 400
+
+    user = db.session.execute(
+        select(User).where(User.email == email)
+    ).scalar_one_or_none()
+
+    if not user or not check_password_hash(user.password, password):
+        return jsonify({'message': 'Invalid email or password'}), 401
+
+    # Create access token
+    access_token = create_access_token(identity=str(user.id))
+
+    return jsonify({
+        'access_token': access_token,
+        'user_id': user.id,
+        'name': user.name
+    }), 200
+
+# Get current user profile
+@app.route('/users/me', methods=['GET'])
+@jwt_required()
+def get_current_user():
+    current_user_id = get_jwt_identity()
+    # Convert user_id back to int
+    user = db.session.get(User, int(current_user_id))
+
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    return user_schema.jsonify(user), 200
 
 # Update an existing user by ID
 @app.route('/users/<int:id>', methods=['PUT'])
+@jwt_required()
 def update_user(id):
+    current_user_id = int(get_jwt_identity())
+
+    # Users can only update their own profile
+    if current_user_id != id:
+        return jsonify({'message': 'Unauthorized access'}), 403
+
     user = db.session.get(User, id)
 
     if not user:
-        return jsonify({'message': 'User not found'}), 400
+        return jsonify({'message': 'Invalid user id'}), 400
 
     try:
         user_data = user_schema.load(request.json, partial=True)
@@ -150,17 +218,26 @@ def update_user(id):
         user.address = user_data['address']
     if 'email' in user_data:
         user.email = user_data['email']
+    if 'password' in user_data:
+        user.password = generate_password_hash(user_data['password'])
     db.session.commit()
 
     return user_schema.jsonify(user), 200
 
 # Delete a user by ID
 @app.route('/users/<int:id>', methods=['DELETE'])
+@jwt_required()
 def delete_user(id):
+    current_user_id = int(get_jwt_identity())
+
+    # Users can only delete their own profile
+    if current_user_id != id:
+        return jsonify({'message': 'Unauthorized access'}), 403
+
     user = db.session.get(User, id)
 
     if not user:
-        return jsonify({'message': 'Invalid user id'}),400
+        return jsonify({'message': 'User not found'}), 404
 
     db.session.delete(user)
     db.session.commit()
