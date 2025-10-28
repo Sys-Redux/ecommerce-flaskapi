@@ -1,1 +1,38 @@
-/venv
+# Environment variables
+.env
+.env.local
+.env.production.local
+
+# SSL certificates
+nginx/ssl/*.crt
+nginx/ssl/*.key
+nginx/ssl/*.pem
+
+# Docker volumes
+mysql_data/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Node
+node_modules/
+dist/
+build/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

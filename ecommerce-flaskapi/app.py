@@ -9,16 +9,27 @@ from sqlalchemy import ForeignKey, Table, String, Column, DateTime, func, select
 from typing import List
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_cors import CORS
+import os
 
 # Initialize Flask app
 app = Flask(__name__)
 
-# MySQL DB Connection
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:<your-password>@localhost/ecommerce_flaskapi'
+# Configure CORS to allow frontend communication
+# In production, this will be https://vampware.com
+# In development, this allows localhost
+allowed_origins = os.environ.get('CORS_ORIGINS', 'https://vampware.com','https://www.vampware.com').split(',')
+CORS(app, resources={r"/*": {"origins": allowed_origins}})
+
+# MySQL DB Connection - Use environment variable in production
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    'SQLALCHEMY_DATABASE_URI',
+    'mysql+mysqlconnector://root:virginia17Javascript#data@localhost/ecommerce_flaskapi'
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# JWT Config
-app.config['JWT_SECRET_KEY'] = 'donaldRumpe' # Change this to a random secret key in production
+# JWT Config - Use environment variable in production
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'donaldRumpe')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = False
 
 # Base Model
@@ -31,6 +42,8 @@ db.init_app(app)
 ma = Marshmallow(app)
 jwt = JWTManager(app)
 
+with app.create_context():
+    db.create_all()
 
 # ------------------------- Models ---------------------------------
 # Association Table for Many-to-Many relationship between Orders and Products

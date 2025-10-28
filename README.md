@@ -1,305 +1,155 @@
-# E-commerce Flask API
+# 🛠️ My Fullstack E-Commerce App (Self-Hosted!)
 
-A REST API for an e-commerce backend built with Flask, SQLAlchemy, and MySQL. This project handles users, products, and orders with proper authentication, validation, and database relationships.
+Welcome! This is my personal, self-hosted fullstack e-commerce project, built from scratch and running on my own server. I designed, coded, and deployed everything myself—from the backend API to the modern frontend, all the way to Dockerized production on my Synology NAS. If you want to see what a solo developer can do with open source tools, this is it!
 
-## Overview
+---
 
-I built this API to practice real-world Flask development patterns including JWT authentication, many-to-many relationships, pagination, and input validation. It's designed to feel closer to what you'd actually use in production rather than just a basic CRUD app.
+## 🚦 What’s Inside?
 
-## Features
+- **Backend:** Python Flask REST API, SQLAlchemy ORM, MySQL database
+- **Frontend:** React 19 + TypeScript, Redux Toolkit, React Query, Vite, TailwindCSS
+- **API Auth:** JWT-based authentication, secure endpoints
+- **DevOps:** Dockerized, Nginx reverse proxy, full deployment scripts
+- **Theme:** Catppuccin Mocha palette for a beautiful, modern look
+- **Self-Hosting:** Deployed and running on my own Synology NAS (not a cloud service!)
 
-- 🔐 User registration and login with JWT tokens
-- 🛡️ Secure authentication on protected routes
-- 📦 Full CRUD operations for users, products, and orders
-- 🔗 Many-to-many relationships between orders and products
-- 📄 Pagination for large datasets
-- ✅ Input validation using Marshmallow schemas
-- 🔒 Password hashing with Werkzeug
+---
 
-## Tech Stack
+## 🏗️ Project Structure
 
-- **Backend Framework**: Flask
-- **Database**: MySQL
-- **ORM**: SQLAlchemy 2.0 (with modern typed syntax)
-- **Validation**: Marshmallow + Flask-Marshmallow
-- **Authentication**: Flask-JWT-Extended
-- **Security**: Werkzeug password hashing
-- **Testing**: Postman
+```file-structure
+/ (project root)
+├── ecommerce-flaskapi/   # Flask backend (API, DB models, auth, etc)
+├── ecom-front/           # React + TS frontend (SPA, state, UI)
+└── nginx/                # Nginx
+```
 
-## Database Schema
+---
 
-### Users
-- `id` - Primary key
-- `name` - User's full name
-- `email` - Unique email address
-- `address` - User's address
-- `password` - Hashed password
+## ✨ Features
 
-### Products
-- `id` - Primary key
-- `product_name` - Name of the product
-- `price` - Product price
+- User registration, login, JWT auth
+- Profile management (edit/delete)
+- Product browsing, search, and detail pages
+- Shopping cart with localStorage persistence
+- Checkout and order history
+- Protected routes for logged-in users
+- Admin endpoints for product management
+- Responsive, mobile-first UI
+- Optimistic UI updates, error handling, and loading states
+- Full REST API with Postman collection
 
-### Orders
-- `id` - Primary key
-- `user_id` - Foreign key to Users
-- `order_date` - Timestamp of order creation
+---
 
-### Order_Product (Association Table)
-- `order_id` - Foreign key to Orders
-- `product_id` - Foreign key to Products
-- Composite primary key prevents duplicate product entries in the same order
+## 🧑‍💻 Tech Stack
 
-## Setup Instructions
+### Frontend
+
+- React 19, TypeScript 5
+- Redux Toolkit, React Query, React Router
+- Axios, TailwindCSS, Vite
+
+### Backend
+
+- Python 3.10+, Flask 3, SQLAlchemy, Marshmallow
+- MySQL 8+, Flask-JWT-Extended, Flask-CORS
+
+### DevOps
+
+- Docker, Docker Compose
+- Nginx (reverse proxy)
+- Deployed on Synology NAS (my own hardware!)
+
+---
+
+## 🚀 How I Run It (Quick Start)
 
 ### Prerequisites
-- Python 3.x installed
-- MySQL server running locally
-- A database created (e.g., `ecommerce_flaskapi`)
 
-### Installation
+- Python 3.10+
+- Node.js 18+
+- MySQL 8.0+
 
-1. **Clone this repository**
-   ```bash
-   git clone https://github.com/Sys-Redux/ecommerce-flaskapi.git
-   cd ecommerce-flaskapi
-   ```
+---
 
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+## 🐳 Docker & Self-Hosting
 
-3. **Configure the database**
+I run everything in Docker containers on my Synology NAS, but I do NOT use docker-compose for deployment. Instead, I built each container separately from its own Dockerfile using the Synology Docker Manager UI. I set all environment variables (like secrets, DB credentials, API URLs) directly in the Docker Manager for each container. Once all containers were running, I set up Nginx (also in its own container) as a reverse proxy to route traffic to the frontend and backend containers. SSL and domain config were handled via Nginx and Let's Encrypt.
 
-   Update the database connection string in `app.py`:
-   ```python
-   app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://username:password@localhost/ecommerce_flaskapi'
-   ```
+### My Deployment Process
 
-   > **Note**: If your password contains special characters like `?`, you'll need to URL-encode it.
+1. Build each container (backend, frontend, nginx) separately from their Dockerfiles using Synology Docker Manager
+2. Set environment variables for each container in the Docker Manager UI
+3. Start backend, frontend, and MySQL containers
+4. Start Nginx container and configure it as a reverse proxy for the app
+5. Set up SSL and domain (Let's Encrypt)
+6. Done! No docker-compose, no cloud—just my code, my server, and my config
 
-4. **Run the application**
-   ```bash
-   flask run
-   ```
-   or
-   ```bash
-   python app.py
-   ```
+---
 
-5. **Access the API**
+## 🔌 API Overview
 
-   The API will be available at `http://localhost:5000`
+- `POST /register` — Register new user
+- `POST /login` — Login, get JWT
+- `GET /products` — List products (paginated)
+- `GET /products/:id` — Product details
+- `POST /orders` — Place order
+- `GET /orders` — List orders
+- `GET /users/me` — Get current user
+- ...and more! (see Postman collection)
 
-## API Endpoints
+---
 
-### Authentication
+## 🎨 Catppuccin Theme
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| POST | `/register` | Create a new user account | No |
-| POST | `/login` | Login and receive JWT access token | No |
-| GET | `/users/me` | Get current user info | Yes |
+I love the Catppuccin Mocha palette, so the whole UI uses it:
 
-### Users
+| Color   | Hex      | Usage           |
+|---------|----------|-----------------|
+| Base    | #1e1e2e  | Background      |
+| Text    | #cdd6f4  | Main text       |
+| Mauve   | #cba6f7  | Primary actions |
+| Pink    | #f5c2e7  | Secondary       |
+| Blue    | #89b4fa  | Info            |
+| Green   | #a6e3a1  | Success         |
+| Red     | #f38ba8  | Error           |
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| GET | `/users` | Get all users (supports pagination) | No |
-| GET | `/users/<id>` | Get user by ID | No |
-| PUT | `/users/<id>` | Update user (partial updates supported) | Yes (own account) |
-| DELETE | `/users/<id>` | Delete user | Yes (own account) |
+---
 
-### Products
+## 🧪 Testing & Troubleshooting
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| GET | `/products` | Get all products (`?page=1&per_page=10`) | No |
-| POST | `/products` | Create a new product | No |
-| GET | `/products/<id>` | Get product by ID | No |
-| PUT | `/products/<id>` | Update product (partial updates supported) | No |
-| DELETE | `/products/<id>` | Delete product | No |
-| DELETE | `/products/delete_multiple` | Delete multiple products | No |
+- Manual test checklist in this repo
+- Linting: `npm run lint` (frontend)
+- Backend: add your own tests (pytest recommended)
+- CORS, DB, and port troubleshooting tips included
 
-### Orders
+---
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| POST | `/orders` | Create new order with multiple products | No |
-| GET | `/orders` | Get all orders (supports pagination) | No |
-| GET | `/orders/<id>` | Get order by ID | No |
-| PUT | `/orders/<id>` | Update order (user or products) | No |
-| GET | `/orders/filter` | Filter orders by date range | No |
+## 🔒 Security & Production Notes
 
-## Example Requests
+- JWT secret is hardcoded for dev—**change for prod!**
+- CORS is localhost-only by default
+- Debug mode is on for dev
+- See checklist for production hardening
 
-### Register a New User
+---
 
-```bash
-POST /register
-Content-Type: application/json
+## 🚧 Roadmap & Ideas
 
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "password": "securePassword123",
-  "address": "123 Main St"
-}
-```
+- Product search, filters, and sorting
+- Reviews, ratings, wishlists
+- Admin dashboard, inventory, Stripe payments
+- Email notifications, order tracking
+- PWA support, image optimization, i18n
 
-### Login
+---
 
-```bash
-POST /login
-Content-Type: application/json
+## 👋 About Me
 
-{
-  "email": "john@example.com",
-  "password": "securePassword123"
-}
-```
+I’m Sys-Redux, and this is my solo fullstack project—designed, built, and hosted by me. If you have questions, want to contribute, or just want to chat about self-hosting, open an issue or reach out!
 
-**Response:**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user_id": 1,
-  "name": "John Doe"
-}
-```
+---
 
-### Create an Order
+**Thanks for checking out my project!**
 
-```bash
-POST /orders
-Content-Type: application/json
-
-{
-  "user_id": 1,
-  "product_ids": [1, 2, 3]
-}
-```
-
-### Using Protected Routes
-
-Include the JWT token in your request headers:
-
-```bash
-GET /users/me
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-### Pagination Example
-
-```bash
-GET /products?page=2&per_page=20
-```
-
-**Response:**
-```json
-{
-  "products": [...],
-  "pagination": {
-    "page": 2,
-    "per_page": 20,
-    "total_pages": 5,
-    "total_items": 97,
-    "has_next": true,
-    "has_prev": true,
-    "next_page": 3,
-    "prev_page": 1
-  }
-}
-```
-
-## Key Implementation Details
-
-### JWT Authentication
-I implemented JWT-based authentication where users log in and receive a token. Protected routes require this token in the Authorization header.
-
-**Important**: The JWT subject must be a string, so I convert the user ID to a string when creating tokens and back to an integer when querying the database.
-
-### Many-to-Many Relationships
-Orders can have multiple products and products can be in multiple orders. I used an association table (`order_product`) with a composite primary key to prevent accidentally adding the same product twice to an order.
-
-### Pagination
-For endpoints that return lists (like products or orders), I added pagination support. The response includes both the data and pagination metadata (current page, total pages, has next/previous, etc.).
-
-### Partial Updates
-I implemented partial updates using Marshmallow's `partial=True` parameter. This means you can update just one field (like a user's name) without having to send all the other fields.
-
-### Input Validation
-Using Marshmallow schemas, all incoming data is validated before hitting the database. If validation fails, the API returns a 400 error with details about what went wrong.
-
-## What I Learned
-
-### SQLAlchemy 2.0 Syntax
-I used the new SQLAlchemy 2.0 style with `DeclarativeBase`, `Mapped` type hints, and `mapped_column`. It makes the code cleaner and gives better IDE support.
-
-### Database Constraints
-Instead of just relying on application logic, I enforced constraints at the database level—like unique email addresses and composite primary keys. This prevents data integrity issues even if something bypasses the application layer.
-
-### Marshmallow Patterns
-- `include_fk=True` to expose foreign keys in schemas
-- `unknown=EXCLUDE` to ignore extra fields in requests (like `product_ids` that aren't actual model fields)
-- `partial=True` for flexible updates
-
-### JWT Best Practices
-The subject in JWT tokens must be a string, not an integer. Also, proper authorization checks are important—users should only be able to update/delete their own accounts.
-
-### MySQL Connection Issues
-If your database password contains special characters, you need to URL-encode the connection string. Otherwise you'll get authentication errors that are confusing to debug.
-
-### Error Handling
-I made sure to return proper HTTP status codes:
-- `200` - Success
-- `201` - Resource created
-- `400` - Bad request/validation errors
-- `401` - Authentication required
-- `403` - Forbidden (authenticated but not authorized)
-- `404` - Resource not found
-- `500` - Server errors
-
-## Testing with Postman
-
-1. Import the `APIs.postman_collection.json` file (if available)
-2. Register a new user via `/register`
-3. Login via `/login` and copy the access token
-4. For protected routes, add the token to the Authorization header:
-   - Type: Bearer Token
-   - Token: `<paste_your_token_here>`
-
-## Future Improvements
-
-- [ ] Add database migrations with Alembic
-- [ ] Implement role-based access control (admin vs regular users)
-- [ ] Add quantity field to order_product table for proper cart functionality
-- [ ] Write unit and integration tests with pytest
-- [ ] Add Docker configuration for easier deployment
-- [ ] Implement rate limiting
-- [ ] Add better logging and monitoring
-- [ ] Create API documentation with Swagger/OpenAPI
-
-## Project Structure
-
-```
-ecommerce-flaskapi/
-├── app.py                          # Main application file
-├── requirements.txt                # Python dependencies
-├── APIs.postman_collection.json    # Postman collection for testing
-└── README.md                       # This file
-```
-
-## Why I Built This
-
-I wanted to build something more realistic than a basic tutorial project. This API includes the kinds of patterns you'd actually use in production: proper authentication, database relationships, validation, pagination, and security best practices. It gave me hands-on experience with modern Flask and SQLAlchemy patterns that I can take into real-world projects.
-
-## License
-
-This project is open source and available for educational purposes.
-
-## Contact
-
-- **GitHub**: [Sys-Redux](https://github.com/Sys-Redux)
-- **Repository**: [ecommerce-flaskapi](https://github.com/Sys-Redux/ecommerce-flaskapi)
+*Built with ❤️, React, Flask, and a lot of coffee, running on my own hardware.*
